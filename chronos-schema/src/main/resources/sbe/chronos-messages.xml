@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   package="com.chronos.schema.sbe"
+                   id="1"
+                   version="1"
+                   semanticVersion="1.0.0"
+                   description="Chronos Trading System Messages"
+                   byteOrder="littleEndian">
+
+    <types>
+        <composite name="messageHeader" description="Message identifiers and length of message root">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId" primitiveType="uint16"/>
+            <type name="version" primitiveType="uint16"/>
+        </composite>
+
+        <enum name="SideEnum" encodingType="uint8">
+            <validValue name="BUY">0</validValue>
+            <validValue name="SELL">1</validValue>
+        </enum>
+
+        <enum name="OrderTypeEnum" encodingType="uint8">
+            <validValue name="LIMIT">0</validValue>
+            <validValue name="MARKET">1</validValue>
+        </enum>
+
+        <enum name="ExecTypeEnum" encodingType="uint8">
+            <validValue name="NEW">0</validValue>
+            <validValue name="PARTIAL_FILL">1</validValue>
+            <validValue name="FILL">2</validValue>
+            <validValue name="CANCELED">3</validValue>
+            <validValue name="REJECTED">4</validValue>
+        </enum>
+    </types>
+
+    <sbe:message name="NewOrderSingle" id="1" description="New order submission">
+        <field name="orderId" id="1" type="uint64"/>
+        <field name="price" id="2" type="int64" description="Fixed-point price: value * 10^8"/>
+        <field name="clientId" id="3" type="uint64"/>
+        <field name="timestampNs" id="4" type="int64" description="Cluster-assigned nanosecond timestamp"/>
+        <field name="instrumentId" id="5" type="uint32"/>
+        <field name="quantity" id="6" type="uint32"/>
+        <field name="side" id="7" type="SideEnum"/>
+        <field name="orderType" id="8" type="OrderTypeEnum"/>
+    </sbe:message>
+
+    <sbe:message name="CancelOrder" id="2" description="Order cancellation request">
+        <field name="orderId" id="1" type="uint64"/>
+        <field name="clientId" id="2" type="uint64"/>
+        <field name="instrumentId" id="3" type="uint32"/>
+    </sbe:message>
+
+    <sbe:message name="ExecutionReport" id="3" description="Execution report for order actions">
+        <field name="orderId" id="1" type="uint64"/>
+        <field name="execId" id="2" type="uint64"/>
+        <field name="price" id="3" type="int64"/>
+        <field name="clientId" id="4" type="uint64"/>
+        <field name="matchTimestampNs" id="5" type="int64"/>
+        <field name="instrumentId" id="6" type="uint32"/>
+        <field name="filledQuantity" id="7" type="uint32"/>
+        <field name="remainingQuantity" id="8" type="uint32"/>
+        <field name="side" id="9" type="SideEnum"/>
+        <field name="execType" id="10" type="ExecTypeEnum"/>
+    </sbe:message>
+
+    <sbe:message name="QuoteRequest" id="4" description="Request for quote">
+        <field name="quoteReqID" id="1" type="uint64" description="Unique quote request identifier"/>
+        <field name="clientId" id="2" type="uint64"/>
+        <field name="instrumentId" id="3" type="uint32"/>
+        <field name="quantity" id="4" type="uint32" description="Requested quantity"/>
+        <field name="side" id="5" type="SideEnum" description="Side for the quote"/>
+        <field name="timestampNs" id="6" type="int64" description="Request timestamp"/>
+    </sbe:message>
+
+    <sbe:message name="Quote" id="5" description="Quote response">
+        <field name="quoteID" id="1" type="uint64" description="Unique quote identifier"/>
+        <field name="quoteReqID" id="2" type="uint64" description="Reference to quote request"/>
+        <field name="clientId" id="3" type="uint64"/>
+        <field name="instrumentId" id="4" type="uint32"/>
+        <field name="bidPrice" id="5" type="int64" description="Bid price (fixed-point * 10^8)"/>
+        <field name="bidSize" id="6" type="uint32" description="Bid quantity"/>
+        <field name="askPrice" id="7" type="int64" description="Ask price (fixed-point * 10^8)"/>
+        <field name="askSize" id="8" type="uint32" description="Ask quantity"/>
+        <field name="timestampNs" id="9" type="int64" description="Quote timestamp"/>
+    </sbe:message>
+
+</sbe:messageSchema>

@@ -1,0 +1,129 @@
+# ═══════════════════════════════════════════════════════════════
+# CHRONOS Trading System - Comprehensive .gitignore
+# ═══════════════════════════════════════════════════════════════
+
+# ───────────────────────────────────────────────────────────────
+# Gradle Build System
+# ───────────────────────────────────────────────────────────────
+.gradle/
+build/
+out/
+bin/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+gradle-app.setting
+.gradletasknamecache
+
+# ───────────────────────────────────────────────────────────────
+# IDE Files
+# ───────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+.metadata/
+*.launch
+.vscode/
+*.code-workspace
+nbproject/
+nbbuild/
+dist/
+nbdist/
+
+# ───────────────────────────────────────────────────────────────
+# Operating System Files
+# ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+
+# ───────────────────────────────────────────────────────────────
+# Java & JVM
+# ───────────────────────────────────────────────────────────────
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# ───────────────────────────────────────────────────────────────
+# Logs & Profiling
+# ───────────────────────────────────────────────────────────────
+*.log
+*.log.*
+logs/
+*.jfr
+jmh-result.json
+jmh-result.txt
+jmh_output.txt
+benchmark_output.txt
+fix_jmh_out.txt
+fix_jmh_out_quick.txt
+out.txt
+test_fail_out*.txt
+test_run_out.txt
+test_compile_out.txt
+checkstyle_out.txt
+compile_out.txt
+compile_error.txt
+compile_results.txt
+jmh_debug.log
+
+# ───────────────────────────────────────────────────────────────
+# Aeron & IPC
+# ───────────────────────────────────────────────────────────────
+aeron-*-driver/
+aeron/
+/aeron-cluster/
+archive/
+
+# ───────────────────────────────────────────────────────────────
+# Test & Coverage Reports
+# ───────────────────────────────────────────────────────────────
+test-results/
+test-output/
+*.exec
+.jacoco/
+coverage/
+
+# ───────────────────────────────────────────────────────────────
+# Temporary & Cache Files
+# ───────────────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+.cache/
+tmp/
+temp/
+
+# ───────────────────────────────────────────────────────────────
+# FIX Protocol Files
+# ───────────────────────────────────────────────────────────────
+FIX*.body
+FIX*.header
+FIX*.seqnums
+
+# ───────────────────────────────────────────────────────────────
+# AI Workflows (Internal)
+# ───────────────────────────────────────────────────────────────
+*.plan.md
+*.ai.md
+.agent/
+brain/
+implementation_plan.md
+task.md
+walkthrough.md
+integration_plan.md
+benchmark_fail_out.txt
+jmh_results.txt
