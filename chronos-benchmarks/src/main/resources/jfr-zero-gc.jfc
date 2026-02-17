@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  JFR configuration for Zero-GC proof.
+  Captures GC events with high fidelity while minimizing observer overhead.
+
+  Usage:
+    java -XX:StartFlightRecording=filename=chronos.jfr,settings=jfr-zero-gc.jfc \
+         -jar chronos-benchmarks.jar
+
+  Analysis:
+    Open chronos.jfr in JDK Mission Control → GC tab.
+    A "flat line" proves zero GC pauses on the hot path.
+-->
+<configuration version="2.0" label="Chronos Zero-GC Proof" provider="CHRONOS">
+
+    <event name="jdk.GarbageCollection">
+        <setting name="enabled">true</setting>
+        <setting name="threshold">0 ms</setting>
+    </event>
+
+    <event name="jdk.GCPhasePause">
+        <setting name="enabled">true</setting>
+        <setting name="threshold">0 ms</setting>
+    </event>
+
+    <event name="jdk.GCHeapSummary">
+        <setting name="enabled">true</setting>
+    </event>
+
+    <event name="jdk.YoungGarbageCollection">
+        <setting name="enabled">true</setting>
+        <setting name="threshold">0 ms</setting>
+    </event>
+
+    <event name="jdk.OldGarbageCollection">
+        <setting name="enabled">true</setting>
+        <setting name="threshold">0 ms</setting>
+    </event>
+
+    <event name="jdk.ZAllocationStall">
+        <setting name="enabled">true</setting>
+        <setting name="threshold">0 ms</setting>
+    </event>
+
+    <event name="jdk.ZPageAllocation">
+        <setting name="enabled">true</setting>
+    </event>
+
+    <event name="jdk.ObjectAllocationInNewTLAB">
+        <setting name="enabled">true</setting>
+    </event>
+
+    <event name="jdk.ObjectAllocationOutsideTLAB">
+        <setting name="enabled">true</setting>
+    </event>
+
+    <!-- CPU and threading events for context -->
+    <event name="jdk.CPULoad">
+        <setting name="enabled">true</setting>
+        <setting name="period">1 s</setting>
+    </event>
+
+    <event name="jdk.ThreadPark">
+        <setting name="enabled">true</setting>
+        <setting name="threshold">1 ms</setting>
+    </event>
+
+    <event name="jdk.JavaMonitorWait">
+        <setting name="enabled">true</setting>
+        <setting name="threshold">1 ms</setting>
+    </event>
+
+    <!-- Compilation events to verify JIT status -->
+    <event name="jdk.Compilation">
+        <setting name="enabled">true</setting>
+    </event>
+
+</configuration>

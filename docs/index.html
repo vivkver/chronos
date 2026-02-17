@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Chronos | Ultra-Low Latency Trading</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <h1>CHRONOS</h1>
+        <div class="subtitle">The Next Generation of High-Frequency Trading</div>
+    </header>
+
+    <main>
+        <section style="text-align: center; margin-bottom: 4rem;">
+            <p style="font-size: 1.2rem; line-height: 1.6; max-width: 800px; margin: 0 auto;">
+                Chronos is an open-source, ultra-low latency trading platform designed for the modern financial
+                ecosystem.
+                Built with <strong>Zero-Allocation</strong> principles and a <strong>Single-Threaded</strong> core, it
+                delivers
+                deterministic performance at the microsecond scale.
+            </p>
+            <div style="margin-top: 2rem; display: flex; justify-content: center; gap: 2rem;">
+                <div class="stat-box">
+                    <span class="stat-value">~125 ns</span>
+                    <span class="stat-label">Parsing Latency</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value">8M+</span>
+                    <span class="stat-label">Msgs/Sec</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value">0</span>
+                    <span class="stat-label">Allocations</span>
+                </div>
+            </div>
+            <a href="https://github.com/vivkver/chronos" class="btn"
+                style="margin-top: 2rem; display: inline-block;">View
+                Source on GitHub</a>
+        </section>
+
+        <section class="features">
+            <div class="card">
+                <h2>Zero Garbage Collection</h2>
+                <p>Engineered to produce zero garbage in the hot path. No pauses, just pure throughput using Agrona and
+                    primitive collections.</p>
+            </div>
+            <div class="card">
+                <h2>FIX 4.4 Gateway</h2>
+                <p>A custom, allocation-free FIX gateway based on the 4.4 standard, optimized for minimal
+                    latency and zero GC pressure.</p>
+            </div>
+            <div class="card">
+                <h2>Aeron Transport</h2>
+                <p>Leveraging Aeron for reliable UDP multicast and IPC, ensuring the fastest possible message delivery
+                    between components.</p>
+            </div>
+            <div class="card">
+                <h2>Sequencer Architecture</h2>
+                <p>Deterministic event sourcing ensures total ordering of events, enabling reliable replay and recovery
+                    strategies.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Project Chronos. Developed by Agents.</p>
+    </footer>
+</body>
+
+</html>

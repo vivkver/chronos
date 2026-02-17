@@ -1,0 +1,25 @@
+[versions]
+agrona = "1.21.2"
+aeron = "1.44.1"
+sbe = "1.31.1"
+hdrhistogram = "2.2.2"
+jmh = "1.37"
+slf4j = "2.0.12"
+junit = "5.10.2"
+
+[libraries]
+agrona = { module = "org.agrona:agrona", version.ref = "agrona" }
+aeron-client = { module = "io.aeron:aeron-client", version.ref = "aeron" }
+aeron-cluster = { module = "io.aeron:aeron-cluster", version.ref = "aeron" }
+aeron-driver = { module = "io.aeron:aeron-driver", version.ref = "aeron" }
+aeron-archive = { module = "io.aeron:aeron-archive", version.ref = "aeron" }
+sbe-tool = { module = "uk.co.real-logic:sbe-tool", version.ref = "sbe" }
+hdrhistogram = { module = "org.HdrHistogram:HdrHistogram", version.ref = "hdrhistogram" }
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-generator = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+
+[plugins]
+jmh = { id = "me.champeau.jmh", version = "0.7.2" }
