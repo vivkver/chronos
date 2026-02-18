@@ -53,10 +53,12 @@ public final class FixGatewayMain {
     private static final int NUM_SHARDS = 2; // Default for MVP
     private static final int READ_BUFFER_SIZE = 8192;
 
-    // Session configuration
     private static final String SENDER_COMP_ID = "CHRONOS";
     private static final String TARGET_COMP_ID = "CLIENT";
     private static final long HEARTBEAT_CHECK_INTERVAL_MS = 1000; // Check every 1 second
+
+    // For integration testing
+    public static volatile String TEST_AERON_DIR_NAME;
 
     public static void main(final String[] args) throws IOException {
         LOG.info("Starting CHRONOS FIX Gateway with Session Layer on port {}...", FIX_PORT);
@@ -88,6 +90,8 @@ public final class FixGatewayMain {
                 Aeron aeron = Aeron.connect(new Aeron.Context().aeronDirectoryName(mediaDriver.aeronDirectoryName()));
                 ServerSocketChannel serverChannel = ServerSocketChannel.open();
                 Selector selector = Selector.open()) {
+
+            TEST_AERON_DIR_NAME = mediaDriver.aeronDirectoryName();
 
             // Connect to multiple shards
             final Publication[] publications = new Publication[NUM_SHARDS];
