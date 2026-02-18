@@ -37,7 +37,8 @@ public final class MatchingEngine {
 
     private static final Logger LOG = LoggerFactory.getLogger(MatchingEngine.class);
 
-    private final OffHeapOrderBook orderBook;
+    // Map of instrumentId -> OrderBook
+    private final org.agrona.collections.Int2ObjectHashMap<OffHeapOrderBook> orderBooks;
     private final PriceScanner priceScanner;
 
     // Pre-allocated encoders (flyweight, reused per call)
@@ -47,8 +48,16 @@ public final class MatchingEngine {
     // Monotonic execution ID counter
     private long nextExecId = 1;
 
-    public MatchingEngine(final OffHeapOrderBook orderBook, final PriceScanner priceScanner) {
-        this.orderBook = orderBook;
+    public MatchingEngine(final org.agrona.collections.Int2ObjectHashMap<OffHeapOrderBook> orderBooks,
+            final PriceScanner priceScanner) {
+        this.orderBooks = orderBooks;
+        this.priceScanner = priceScanner;
+    }
+
+    // Constructor for backward compatibility / single instrument
+    public MatchingEngine(final OffHeapOrderBook singleBook, final PriceScanner priceScanner) {
+        this.orderBooks = new org.agrona.collections.Int2ObjectHashMap<>();
+        this.orderBooks.put(singleBook.instrumentId(), singleBook);
         this.priceScanner = priceScanner;
     }
 
@@ -77,6 +86,18 @@ public final class MatchingEngine {
 
         int bytesWritten = 0;
         int currentOffset = outputOffset;
+
+        // Lookup order book for this instrument
+        final OffHeapOrderBook orderBook = orderBooks.get(instrumentId);
+        if (orderBook == null) {
+            LOG.error("Unknown instrument ID: {}", instrumentId);
+            // Reject the order
+            return writeExecReport(
+                    outputBuffer, currentOffset,
+                    orderId, price, clientId, clusterTimestamp,
+                    instrumentId, 0, quantity,
+                    side, ExecType.REJECTED);
+        }
 
         // ─── Aggressive matching phase ───
         // A BUY matches against ASK levels; a SELL matches against BID levels
@@ -208,17 +229,33 @@ public final class MatchingEngine {
                 .side(side)
                 .execType(execType);
 
+        // Metrics
+        if (execType == ExecType.FILL || execType == ExecType.PARTIAL_FILL) {
+            com.chronos.core.util.ChronosMetrics.onMatchFound();
+        } else if (execType == ExecType.REJECTED) {
+            com.chronos.core.util.ChronosMetrics.onOrderRejected();
+        }
+
         return MessageHeaderEncoder.ENCODED_LENGTH + ExecutionReportEncoder.BLOCK_LENGTH;
     }
 
-    /** Returns the underlying order book for snapshotting, testing, etc. */
+    /** Returns the underlying order book for a specific instrument. */
+    public OffHeapOrderBook orderBook(int instrumentId) {
+        return orderBooks.get(instrumentId);
+    }
+
+    /** Returns the first order book (for legacy tests). */
     public OffHeapOrderBook orderBook() {
-        return orderBook;
+        if (orderBooks.isEmpty())
+            return null;
+        return orderBooks.values().iterator().next();
     }
 
     /** Reset the engine state — used during snapshot restore. */
     public void reset() {
-        orderBook.reset();
+        for (OffHeapOrderBook book : orderBooks.values()) {
+            book.reset();
+        }
         nextExecId = 1;
     }
 }

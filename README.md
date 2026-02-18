@@ -134,6 +134,30 @@ stringBasedEncoding                avgt   20  890.7 ± 15.4  ns/op
 ```
 *Note: This benchmark was performed on a single machine using shared memory IPC via Aeron. P99.99 achieved 41.6µs without core pinning. Production target is < 10µs.*
 
+---
+
+## Production Deployment
+
+**Recommended JVM Configuration:**
+```bash
+java -XX:+UseZGC \
+     -XX:+ZGenerational \
+     -Xms8g -Xmx8g \
+     -XX:SoftMaxHeapSize=6g \
+     --add-modules jdk.incubator.vector \
+     --add-opens java.base/sun.misc=ALL-UNNAMED \
+     -jar chronos-sequencer.jar
+```
+
+**GC Selection:**
+- **Production**: ZGC with generational mode (sub-millisecond GC pauses)
+- **Benchmarking**: Epsilon GC (no-op GC for zero-allocation verification)
+- **Development**: G1GC (default, balanced)
+
+See [docs/gc-selection-guide.md](docs/gc-selection-guide.md) for detailed GC configuration guidance.
+
+---
+
 ### 3. FIX Parser Comparison vs Open-Source Libraries
 
 **Validated Benchmarks (Same Machine, Same Message, Rigorous JMH Settings):**
