@@ -207,7 +207,7 @@ public final class ChronosClusteredService implements ClusteredService {
             final int offset, final int length) {
         // Retry loop for back-pressure (Aeron publication may be full)
         long result;
-        int retries = 3;
+        int retries = 100;
         do {
             result = session.offer(buffer, offset, length);
             if (result > 0) {

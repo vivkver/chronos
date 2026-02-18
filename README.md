@@ -117,26 +117,58 @@ stringBasedEncoding                avgt   20  890.7 ± 15.4  ns/op
 ```
 *~20x faster with zero GC pressure.*
 
-#### 2. Wire-to-Wire Benchmark (Actual Run)
+#### 2. Aeron Cluster Latency (Shared Memory IPC)
 
-```text
-======================================================
-  LATENCY REPORT: Wire-to-Wire
-======================================================
-  Total samples      : 1,000,000
-  Mean        (ns)   : 2,336.4
-  StdDev      (ns)   : 2,579.9
-------------------------------------------------------
-  P50         (ns)   : 2,601  (2.6 µs)
-  P99         (ns)   : 9,807  (9.8 µs)
-  P99.99      (ns)   : 41,631 (41.6 µs)
-======================================================
+This benchmark measures the full Raft consensus path: **Client -> Consensus Module -> Sequencer -> Matching Engine -> Client**.
+
+```bash
+# Run the cluster latency benchmark
+./gradlew :chronos-benchmarks:runClusterLatency
 ```
-*Note: This benchmark was performed on a single machine using shared memory IPC via Aeron. P99.99 achieved 41.6µs without core pinning. Production target is < 10µs.*
+
+| Environment | Median Latency (P50) | Tail Latency (P99.9) | Status |
+|-------------|-----------------------|-----------------------|--------|
+| **Windows Dev (Standard)** | ~4.5 - 5.5 ms | 60 - 70 ms | Bottleneck: Disk I/O + OS Jitter |
+| **Linux (Tuned/NVMe)** | **< 50 µs** | **< 150 µs** | **Production Target** |
+
+> **Note on Performance:** The ~5ms latency seen on Windows is almost entirely due to the Raft log persistence to the standard file system and thread scheduling jitter. For realistic low-latency results, use the Linux optimization script.
+
+#### 3. Vector API (SIMD) Status
+
+CHRONOS **actively uses the JDK 21+ Vector API** to achieve SIMD-accelerated price scanning.
+
+- **Implementation:** `VectorizedPriceScanner.java`
+- **Performance:** Processes up to 8 price levels (AVX-2) or 16 price levels (AVX-512) per CPU cycle.
+- **Graceful Fallback:** If the Vector API is not available in the JVM or not supported by the hardware, the system automatically falls back to `ScalarPriceScanner.java`.
 
 ---
 
-## Production Deployment
+## Linux Benchmarking Guide
+
+For developers with access to a Linux environment (Oracle Cloud, Hetzner, AWS), we provide a dedicated optimization script.
+
+### Running the Linux Benchmark
+
+1.  **Clone and Prep**:
+    ```bash
+    git clone https://github.com/vivkver/chronos.git
+    cd chronos
+    chmod +x scripts/bench-linux.sh
+    ```
+
+2.  **Execute (with sudo for kernel tuning)**:
+    ```bash
+    sudo ./scripts/bench-linux.sh
+    ```
+
+This script performs:
+- **Kernel Tuning**: Sets CPU governor to `performance` and increases UDP buffer sizes.
+- **RAM Disk Storage**: Moves the Aeron cluster Raft logs to `/dev/shm` to eliminate Disk I/O bottlenecks.
+- **Core Affinity**: Uses `taskset` to bind the benchmark process to specific CPU cores.
+
+---
+
+## Project Structure
 
 **Recommended JVM Configuration:**
 ```bash
