@@ -9,6 +9,11 @@ dependencies {
     implementation(project(":chronos-fix-gateway"))
     implementation(project(":chronos-response-gateway"))
     implementation(project(":chronos-warmup"))
+    implementation(project(":chronos-sequencer"))
+    implementation(libs.aeron.client)
+    implementation(libs.aeron.cluster)
+    implementation(libs.aeron.driver)
+    implementation(libs.aeron.archive)
     implementation("org.hdrhistogram:HdrHistogram:2.2.2")
     implementation("org.quickfixj:quickfixj-core:2.3.1")
     implementation("com.paritytrading.philadelphia:philadelphia-core:2.0.0")
@@ -95,6 +100,20 @@ tasks.register<JavaExec>("runWireToWireEpsilonGc") {
         "-Xms512m", "-Xmx512m",
         "-XX:+AlwaysPreTouch",
         "-Xlog:gc*:file=build/gc-epsilon.log:time,uptime,level,tags"
+    )
+}
+
+tasks.register<JavaExec>("runClusterLatency") {
+    group = "verification"
+    description = "Benchmarks Aeron Cluster latency (IPC mode)"
+    mainClass = "com.chronos.bench.ClusterLatencyBenchmark"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs = listOf(
+        "--add-modules", "jdk.incubator.vector",
+        "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+        "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
+        "-XX:+UseZGC", "-XX:+ZGenerational",
+        "-Xms1g", "-Xmx1g" 
     )
 }
 
