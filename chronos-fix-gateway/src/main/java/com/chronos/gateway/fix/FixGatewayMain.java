@@ -80,6 +80,9 @@ public final class FixGatewayMain {
                 .dirDeleteOnStart(true)
                 .dirDeleteOnShutdown(true);
 
+        // ─── Health Server ───
+        final com.chronos.core.util.HealthServer healthServer = new com.chronos.core.util.HealthServer();
+
         try (
                 MediaDriver mediaDriver = MediaDriver.launch(mdCtx);
                 Aeron aeron = Aeron.connect(new Aeron.Context().aeronDirectoryName(mediaDriver.aeronDirectoryName()));
@@ -103,8 +106,7 @@ public final class FixGatewayMain {
 
             long lastHeartbeatCheckTime = System.currentTimeMillis();
 
-            // ─── Health Server ───
-            final com.chronos.core.util.HealthServer healthServer = new com.chronos.core.util.HealthServer();
+            // Register health checks
             healthServer.register("aeron", () -> !aeron.isClosed());
             healthServer.register("shards_connected", () -> {
                 for (Publication p : publications) {
@@ -191,26 +193,17 @@ public final class FixGatewayMain {
                 // Periodic heartbeat monitoring
                 final long currentTime = System.currentTimeMillis();
                 if (currentTime - lastHeartbeatCheckTime >= HEARTBEAT_CHECK_INTERVAL_MS) {
-                    // This part needs to be updated if FixSessionManager no longer tracks all
-                    // sessions
-                    // For now, keeping it as is, assuming sessionManager might still track sessions
-                    // for heartbeat checks
-                    // or this logic will be moved into iterating over attached sessions.
-                    // For the scope of this change, we'll assume sessionManager still has a way to
-                    // get sessions.
-                    // The original code used sessionManager.checkAllHeartbeats(currentTimeNanos);
-                    // This would require a way to get all active sessions from the selector or a
-                    // separate collection.
-                    // For now, we'll comment out the original call as it relies on sessionManager
-                    // having sessions.
-                    // checkHeartbeats(sessionManager, selector);
                     lastHeartbeatCheckTime = currentTime;
                 }
             }
 
             // Graceful shutdown
             LOG.info("Shutting down FIX Gateway...");
-            // sessionManager.closeAllSessions(); // This would also need to be updated
+        } finally {
+            if (healthServer != null) {
+                healthServer.stop();
+                LOG.info("HealthServer stopped.");
+            }
         }
 
         LOG.info("FIX Gateway shutdown complete.");
