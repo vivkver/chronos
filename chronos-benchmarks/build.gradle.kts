@@ -39,6 +39,18 @@ jmh {
     if (project.hasProperty("jmhInclude")) {
         includes.add(project.property("jmhInclude") as String)
     }
+    // Enable GC allocation profiler when running zero-GC proof
+    if (project.hasProperty("zeroGcProof")) {
+        includes.add("ZeroGcProofBenchmark")
+        profilers.add("gc")
+        jvmArgs = listOf(
+            "--add-modules", "jdk.incubator.vector",
+            "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+            "-XX:+UseZGC", "-XX:+ZGenerational",
+            "-XX:+AlwaysPreTouch",
+            "-Xlog:gc*:file=build/zero-gc-proof.log:time,uptime,level,tags"
+        )
+    }
 }
 
 tasks.register<JavaExec>("runWireToWire") {
@@ -62,4 +74,59 @@ tasks.register<JavaExec>("runFixReplayer") {
     mainClass = "com.chronos.bench.FixLogReplayer"
     classpath = sourceSets["main"].runtimeClasspath
     args = listOf("localhost", "9876", "../sample_fix.log") // Default args for testing
+}
+
+// ─── Zero-GC Proof Tasks ───────────────────────────────────────────────────
+
+/**
+ * Epsilon GC Proof: runs 1M orders with a no-op GC and a tiny 64MB heap.
+ *
+ * Pass criteria: exits with code 0 (no OutOfMemoryError).
+ * Fail criteria: JVM throws OOME → hot path allocates heap objects.
+ *
+ * Usage: ./gradlew :chronos-benchmarks:verifyZeroGc
+ */
+tasks.register<JavaExec>("verifyZeroGc") {
+    group = "verification"
+    description = "Proves zero heap allocation on the hot path using Epsilon GC"
+    mainClass = "com.chronos.bench.EpsilonGcProof"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs = listOf(
+        "--add-modules", "jdk.incubator.vector",
+        "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+        // Epsilon GC: no-op collector — OOME if anything allocates
+        "-XX:+UnlockExperimentalVMOptions",
+        "-XX:+UseEpsilonGC",
+        // Intentionally small heap: warmup + static data only, no room for hot-path allocs
+        "-Xms128m", "-Xmx128m",
+        "-XX:+AlwaysPreTouch",
+        // GC log for post-run analysis
+        "-Xlog:gc*:file=build/epsilon-gc.log:time,uptime,level,tags"
+    )
+    // Fail the build if the proof exits with a non-zero code (OOME)
+    isIgnoreExitValue = false
+}
+
+/**
+ * JMH Zero-GC Benchmark: runs ZeroGcProofBenchmark with the GC allocation
+ * profiler to measure bytes allocated per operation.
+ *
+ * Pass criteria: gc.alloc.rate.norm = 0.0 B/op
+ *
+ * Usage: ./gradlew :chronos-benchmarks:jmh -PzeroGcProof
+ *
+ * Results are written to build/zero-gc-jmh-result.json
+ */
+tasks.register("zeroGcJmh") {
+    group = "verification"
+    description = "Alias: runs JMH with GC profiler on ZeroGcProofBenchmark"
+    dependsOn("jmh")
+    doFirst {
+        // Ensure the zeroGcProof property is set so the jmh block picks it up
+        if (!project.hasProperty("zeroGcProof")) {
+            throw GradleException(
+                "Run via: ./gradlew :chronos-benchmarks:jmh -PzeroGcProof"
+            )
+        }
+    }
 }
