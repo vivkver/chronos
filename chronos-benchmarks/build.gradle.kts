@@ -22,6 +22,9 @@ tasks.withType<JavaCompile> {
 }
 
 jmh {
+    // Production GC: ZGC for realistic performance measurement
+    // For zero-allocation verification, override with:
+    // ./gradlew jmh -Pjmh.jvmArgs="-XX:+UnlockExperimentalVMOptions,-XX:+UseEpsilonGC,-Xms256m,-Xmx256m"
     jvmArgs = listOf(
         "--add-modules", "jdk.incubator.vector",
         "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
@@ -43,6 +46,8 @@ tasks.register<JavaExec>("runWireToWire") {
     description = "Runs the end-to-end wire-to-wire latency benchmark"
     mainClass = "com.chronos.bench.WireToWireBenchmark"
     classpath = sourceSets["main"].runtimeClasspath
+    // Production GC: ZGC for realistic measurement
+    // For zero-allocation verification: -XX:+UnlockExperimentalVMOptions -XX:+UseEpsilonGC -Xms512m -Xmx512m
     jvmArgs = listOf(
         "--add-modules", "jdk.incubator.vector",
         "--add-opens", "java.base/sun.misc=ALL-UNNAMED",

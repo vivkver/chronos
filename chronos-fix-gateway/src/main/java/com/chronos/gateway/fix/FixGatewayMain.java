@@ -31,8 +31,10 @@ import java.util.List;
  *
  * <h2>Message Routing</h2>
  * <ul>
- *   <li><b>Session Messages</b> (Logon, Logout, Heartbeat, TestRequest) - Handled by session layer</li>
- *   <li><b>Application Messages</b> (NewOrderSingle, CancelOrder, Quote, QuoteRequest) - Encoded to SBE and sent to Aeron</li>
+ * <li><b>Session Messages</b> (Logon, Logout, Heartbeat, TestRequest) - Handled
+ * by session layer</li>
+ * <li><b>Application Messages</b> (NewOrderSingle, CancelOrder, Quote,
+ * QuoteRequest) - Encoded to SBE and sent to Aeron</li>
  * </ul>
  *
  * <h2>Threading Model</h2>
@@ -47,9 +49,10 @@ public final class FixGatewayMain {
 
     private static final int FIX_PORT = 9876;
     private static final String AERON_CHANNEL = "aeron:ipc";
-    private static final int AERON_STREAM_ID = 1001;
+    private static final int BASE_AERON_STREAM_ID = 1001;
+    private static final int NUM_SHARDS = 2; // Default for MVP
     private static final int READ_BUFFER_SIZE = 8192;
-    
+
     // Session configuration
     private static final String SENDER_COMP_ID = "CHRONOS";
     private static final String TARGET_COMP_ID = "CLIENT";
@@ -61,10 +64,15 @@ public final class FixGatewayMain {
         // Pre-allocate buffers (zero allocation on hot path)
         final ByteBuffer readBuffer = ByteBuffer.allocateDirect(READ_BUFFER_SIZE);
         final UnsafeBuffer readUnsafeBuffer = new UnsafeBuffer(readBuffer);
-        final UnsafeBuffer sbeBuffer = new UnsafeBuffer(new byte[4096]); // Larger buffer for all message types
+        final ByteBuffer sbeRawBuffer = ByteBuffer.allocateDirect(4096);
+        final UnsafeBuffer sbeBuffer = new UnsafeBuffer(sbeRawBuffer); // Larger buffer for all message types
 
         final FixToSbeEncoder encoder = new FixToSbeEncoder();
         final FixParser parser = new FixParser();
+
+        // Initialize Router
+        final InstrumentRouter router = InstrumentRouter.createDefault();
+        LOG.info("Initialized Instrument Router for {} shards", NUM_SHARDS);
 
         // ─── Embedded Media Driver ───
         final MediaDriver.Context mdCtx = new MediaDriver.Context()
@@ -75,18 +83,49 @@ public final class FixGatewayMain {
         try (
                 MediaDriver mediaDriver = MediaDriver.launch(mdCtx);
                 Aeron aeron = Aeron.connect(new Aeron.Context().aeronDirectoryName(mediaDriver.aeronDirectoryName()));
-                Publication publication = aeron.addPublication(AERON_CHANNEL, AERON_STREAM_ID);
                 ServerSocketChannel serverChannel = ServerSocketChannel.open();
                 Selector selector = Selector.open()) {
-            
+
+            // Connect to multiple shards
+            final Publication[] publications = new Publication[NUM_SHARDS];
+            for (int i = 0; i < NUM_SHARDS; i++) {
+                final int streamId = BASE_AERON_STREAM_ID + i;
+                publications[i] = aeron.addPublication(AERON_CHANNEL, streamId);
+                LOG.info("Connected to Shard {} on Stream ID {}", i, streamId);
+            }
+
             serverChannel.bind(new InetSocketAddress(FIX_PORT));
             serverChannel.configureBlocking(false);
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-            LOG.info("FIX Gateway listening on port {}. Aeron publication connected.", FIX_PORT);
+            LOG.info("FIX Gateway listening on port {}. Aeron publications connected.", FIX_PORT);
             LOG.info("Session Manager initialized. Ready to accept FIX connections.");
 
             long lastHeartbeatCheckTime = System.currentTimeMillis();
+
+            // ─── Health Server ───
+            final com.chronos.core.util.HealthServer healthServer = new com.chronos.core.util.HealthServer();
+            healthServer.register("aeron", () -> !aeron.isClosed());
+            healthServer.register("shards_connected", () -> {
+                for (Publication p : publications) {
+                    if (!p.isConnected())
+                        return false;
+                }
+                return true;
+            });
+            healthServer.start(8081);
+
+            // ─── Shutdown Hook ───
+            final Thread mainThread = Thread.currentThread();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                LOG.info("Shutdown signal received. Interrupting main loop...");
+                mainThread.interrupt();
+                try {
+                    mainThread.join(5000);
+                } catch (InterruptedException e) {
+                    // ignore
+                }
+            }));
 
             // ─── NIO Event Loop ───
             while (!Thread.currentThread().isInterrupted()) {
@@ -103,20 +142,21 @@ public final class FixGatewayMain {
                             if (client != null) {
                                 client.configureBlocking(false);
                                 final SelectionKey clientKey = client.register(selector, SelectionKey.OP_READ);
-                                
-                                // Create new session and attach to key
-                                final FixSession session = new FixSession(client, encoder, publication, sbeBuffer);
+
+                                // Create new session with Router and Publications
+                                final FixSession session = new FixSession(client, encoder, publications, router,
+                                        sbeBuffer);
                                 clientKey.attach(session);
-                                
+
                                 LOG.info("FIX client connected: {}", client.getRemoteAddress());
                             }
                         } else if (key.isReadable()) {
                             final SocketChannel client = (SocketChannel) key.channel();
                             final FixSession session = (FixSession) key.attachment();
-                            
+
                             readBuffer.clear();
                             final int bytesRead = client.read(readBuffer);
-                            
+
                             if (bytesRead == -1) {
                                 LOG.info("FIX client disconnected");
                                 key.cancel();
@@ -151,13 +191,18 @@ public final class FixGatewayMain {
                 // Periodic heartbeat monitoring
                 final long currentTime = System.currentTimeMillis();
                 if (currentTime - lastHeartbeatCheckTime >= HEARTBEAT_CHECK_INTERVAL_MS) {
-                    // This part needs to be updated if FixSessionManager no longer tracks all sessions
-                    // For now, keeping it as is, assuming sessionManager might still track sessions for heartbeat checks
+                    // This part needs to be updated if FixSessionManager no longer tracks all
+                    // sessions
+                    // For now, keeping it as is, assuming sessionManager might still track sessions
+                    // for heartbeat checks
                     // or this logic will be moved into iterating over attached sessions.
-                    // For the scope of this change, we'll assume sessionManager still has a way to get sessions.
+                    // For the scope of this change, we'll assume sessionManager still has a way to
+                    // get sessions.
                     // The original code used sessionManager.checkAllHeartbeats(currentTimeNanos);
-                    // This would require a way to get all active sessions from the selector or a separate collection.
-                    // For now, we'll comment out the original call as it relies on sessionManager having sessions.
+                    // This would require a way to get all active sessions from the selector or a
+                    // separate collection.
+                    // For now, we'll comment out the original call as it relies on sessionManager
+                    // having sessions.
                     // checkHeartbeats(sessionManager, selector);
                     lastHeartbeatCheckTime = currentTime;
                 }

@@ -2,7 +2,7 @@ package com.chronos.sequencer;
 
 import com.chronos.core.lob.OffHeapOrderBook;
 import com.chronos.matching.MatchingEngine;
-import com.chronos.matching.VectorizedPriceScanner;
+import com.chronos.matching.PriceScannerFactory;
 import com.chronos.schema.sbe.CancelOrderDecoder;
 import com.chronos.schema.sbe.MessageHeaderDecoder;
 import com.chronos.schema.sbe.MessageHeaderEncoder;
@@ -67,15 +67,19 @@ public final class ChronosClusteredService implements ClusteredService {
     private final MutableDirectBuffer outputBuffer = new UnsafeBuffer(new byte[4096]);
 
     // The matching engine (co-located in this process)
-    private final OffHeapOrderBook orderBook;
     private final MatchingEngine matchingEngine;
 
     private Cluster cluster;
     private long messageCount;
 
     public ChronosClusteredService() {
-        this.orderBook = new OffHeapOrderBook(DEFAULT_INSTRUMENT_ID);
-        this.matchingEngine = new MatchingEngine(orderBook, new VectorizedPriceScanner());
+        // MVP: Pre-allocate order books for instrument IDs 1-10
+        // In production, this would be configuration-driven
+        org.agrona.collections.Int2ObjectHashMap<OffHeapOrderBook> books = new org.agrona.collections.Int2ObjectHashMap<>();
+        for (int i = 1; i <= 10; i++) {
+            books.put(i, new OffHeapOrderBook(i));
+        }
+        this.matchingEngine = new MatchingEngine(books, PriceScannerFactory.create());
     }
 
     @Override
@@ -151,15 +155,41 @@ public final class ChronosClusteredService implements ClusteredService {
 
     @Override
     public void onTakeSnapshot(final ExclusivePublication snapshotPublication) {
-        LOG.info("Taking snapshot. Live orders: {}", orderBook.liveOrderCount());
-        // In production: serialize the full order book state to the snapshot
-        // publication
-        // This enables fast recovery without replaying the entire Raft log
-        final MutableDirectBuffer snapshotBuffer = new ExpandableArrayBuffer(1024);
-        snapshotBuffer.putLong(0, messageCount);
-        snapshotBuffer.putInt(8, orderBook.liveOrderCount());
-        // Full order book serialization would go here
-        snapshotPublication.offer(snapshotBuffer, 0, 12);
+        LOG.info("Taking snapshot of all order books...");
+
+        // 1. Write metadata (message count, number of books)
+        final MutableDirectBuffer metadataBuffer = new ExpandableArrayBuffer(128);
+        metadataBuffer.putLong(0, messageCount);
+
+        // Get all books from engine
+        // Note: In a real impl, we'd iterate the map. For MVP, we know IDs 1-10.
+        int bookCount = 10;
+        metadataBuffer.putInt(8, bookCount);
+
+        long result = snapshotPublication.offer(metadataBuffer, 0, 12);
+        if (result < 0) {
+            LOG.warn("Snapshot offer failed: {}", result);
+            return;
+        }
+
+        // 2. Serialize each order book
+        // format: [instrumentId(4)][orderCount(4)][Order1...][OrderN...]
+        for (int i = 1; i <= bookCount; i++) {
+            OffHeapOrderBook book = matchingEngine.orderBook(i);
+            if (book != null) {
+                // For MVP: We are just serializing the counts to prove the point.
+                // A full prod impl would require a custom iterator over the OffHeapOrderBook's
+                // unsafe memory
+                // to write every order to the snapshot buffer.
+                // We will simulate this by writing a "book header"
+
+                metadataBuffer.putInt(0, i); // Instrument ID
+                metadataBuffer.putInt(4, book.liveOrderCount());
+                snapshotPublication.offer(metadataBuffer, 0, 8);
+            }
+        }
+
+        LOG.info("Snapshot complete.");
     }
 
     @Override

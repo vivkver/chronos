@@ -23,3 +23,16 @@ application {
         "-Xms2g", "-Xmx2g", "-XX:+AlwaysPreTouch"
     )
 }
+
+
+tasks.test {
+    useJUnitPlatform()
+    jvmArgs(
+        "--add-opens", "java.base/sun.misc=ALL-UNNAMED",
+        "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED"
+    )
+    testLogging {
+        showStandardStreams = true
+        events("passed", "skipped", "failed")
+    }
+}

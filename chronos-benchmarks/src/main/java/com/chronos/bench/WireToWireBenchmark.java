@@ -3,7 +3,7 @@ package com.chronos.bench;
 import com.chronos.core.lob.OffHeapOrderBook;
 import com.chronos.gateway.response.LatencyTracker;
 import com.chronos.matching.MatchingEngine;
-import com.chronos.matching.VectorizedPriceScanner;
+import com.chronos.matching.PriceScannerFactory;
 import com.chronos.schema.sbe.MessageHeaderDecoder;
 import com.chronos.schema.sbe.NewOrderSingleDecoder;
 import com.chronos.warmup.WarmupOrderGenerator;
@@ -57,7 +57,7 @@ public final class WireToWireBenchmark {
 
         // ─── Setup ───
         final OffHeapOrderBook orderBook = new OffHeapOrderBook(1);
-        final MatchingEngine engine = new MatchingEngine(orderBook, new VectorizedPriceScanner());
+        final MatchingEngine engine = new MatchingEngine(orderBook, PriceScannerFactory.create());
         final WarmupOrderGenerator generator = new WarmupOrderGenerator(42L);
         final LatencyTracker latencyTracker = new LatencyTracker("Wire-to-Wire");
 
