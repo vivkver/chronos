@@ -322,4 +322,62 @@ jvm_memory_used_bytes{area="heap"}
 3. **Run benchmarks** with Epsilon GC to measure true performance
 4. **Monitor GC logs** and adjust based on actual behavior
 
-**After completing all 7 architectural improvements, run the full benchmark suite to measure actual GC impact.**
+---
+
+## Future Exploration (JDK 26+)
+
+### Java Vector API — Stable SIMD in the GC Model
+
+Currently, Chronos uses `jdk.incubator.vector` (incubating since JDK 16). In JDK 26+, the Vector API is expected to graduate to a stable module, enabling:
+
+#### What Changes
+
+| Aspect | Current (JDK 21) | Future (JDK 26+) |
+|--------|-----------------|------------------|
+| Module | `jdk.incubator.vector` | `java.vector` (stable) |
+| `--add-modules` flag | Required | Not needed |
+| API stability | May change between releases | Stable, long-term |
+| JIT optimization | Good (C2 vectorizes) | Better (dedicated intrinsics) |
+
+#### Planned Approach: Full Vector-Based Order Book Scanning
+
+With a stable Vector API, the matching engine can be extended to use **256-bit or 512-bit SIMD lanes** for:
+
+```java
+// Future: vectorized price comparison across 8 levels at once (AVX-512)
+public int countMatchableLevels(long[] prices, int count, long limitPrice, boolean isBuy) {
+    var species = LongVector.SPECIES_512; // 8 longs per vector (512-bit)
+    var limit   = LongVector.broadcast(species, limitPrice);
+    int i = 0, matched = 0;
+
+    for (; i < species.loopBound(count); i += species.length()) {
+        var chunk = LongVector.fromArray(species, prices, i);
+        // Buy: match where ask <= limitPrice; Sell: match where bid >= limitPrice
+        var mask = isBuy ? chunk.compare(VectorOperators.LE, limit)
+                         : chunk.compare(VectorOperators.GE, limit);
+        matched += mask.trueCount();
+    }
+    // Scalar tail
+    for (; i < count; i++) {
+        if (isBuy ? prices[i] <= limitPrice : prices[i] >= limitPrice) matched++;
+    }
+    return matched;
+}
+```
+
+**Expected gains over current 4-lane implementation:**
+- AVX-512 (8 lanes): ~2× improvement over current AVX-256 (4 lanes)
+- Eliminates `--add-modules jdk.incubator.vector` from all JVM args
+- Enables use in GraalVM native-image (currently blocked by incubating status)
+
+#### Migration Path
+
+```kotlin
+// build.gradle.kts — future migration
+tasks.withType<JavaCompile> {
+    // Remove once Vector API graduates:
+    // options.compilerArgs.addAll(listOf("--add-modules", "jdk.incubator.vector"))
+}
+```
+
+See `VectorApiAbstractionLayer.java` for the current abstraction that makes this migration a single-file change.
