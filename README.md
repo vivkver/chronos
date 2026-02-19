@@ -162,4 +162,4 @@ These features are currently in preview/incubator but will enhance CHRONOS when 
 
 ## License
 
-MIT
+Apache License 2.0
