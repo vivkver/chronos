@@ -37,6 +37,9 @@ mkdir -p "$RAM_DISK"
 
 # 3. Execution
 echo "[3/3] Running Cluster Latency Benchmark..."
+# Ensure gradlew is executable
+chmod +x ./gradlew
+
 # We use taskset to bind the process to dedicated cores (if available)
 # Cores 0-3 are often a good choice on a 4-core box
 if command -v taskset &> /dev/null; then
