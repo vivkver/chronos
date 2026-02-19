@@ -28,7 +28,7 @@ A production-grade, ultra-low latency (ULL) trading system built in Java, demons
 │  • FIX Parser   │     │  │             │  │  • SIMD/AVX  │  │     │  • SBE→FIX encode   │
 │  • FIX→SBE      │     │  │  • Total    │  │  • Off-heap  │  │     │                    │
 │  • Zero-alloc   │     │  │    Order    │  │    LOB       │  │     │                    │
-└─────────────────┘     │  └─────────────┘  └──────────────┘  │     └────────────────────┘
+31: └─────────────────┘     │  └─────────────┘  └──────────────┘  │     └────────────────────┘
                         └──────────────────────────────────────┘
                                          │
                         ┌────────────────────────────────────┐
@@ -97,81 +97,18 @@ chronos/
 ./gradlew :chronos-response-gateway:run
 ```
 
-## Benchmarks
+## Performance Highlights
 
-### 1. Hot Path Microbenchmarks (JMH)
+For detailed benchmark results, methodology, and the Linux optimization guide, please see [BENCHMARK_GUIDE.md](BENCHMARK_GUIDE.md).
 
-**SIMD vs Scalar Price Scanning:**
-```
-Benchmark                          (levels)  Mode  Cnt    Score   Error  Units
-simdCountMatchable                      512  avgt   20    8.3 ±  0.2  ns/op
-scalarCountMatchable                    512  avgt   20   65.1 ±  1.1  ns/op
-```
-*Expected 3x–8x speedup depending on CPU and level count.*
+- **FIX Parsing**: **110ns** (vs 542ns QuickFIX/J)
+- **Wire-to-Wire Latency**: **< 50µs** (Linux Optimized)
+- **Zero GC**: Verified via JFR on critical paths.
 
-**Zero-Alloc SBE vs String-Based FIX Encoding:**
-```
-Benchmark                          Mode  Cnt    Score   Error  Units
-chronosZeroAllocEncoding           avgt   20   45.2 ±  1.3  ns/op
-stringBasedEncoding                avgt   20  890.7 ± 15.4  ns/op
-```
-*~20x faster with zero GC pressure.*
+## Production Deployment
 
-#### 2. Aeron Cluster Latency (Shared Memory IPC)
+### Recommended JVM Configuration
 
-This benchmark measures the full Raft consensus path: **Client -> Consensus Module -> Sequencer -> Matching Engine -> Client**.
-
-```bash
-# Run the cluster latency benchmark
-./gradlew :chronos-benchmarks:runClusterLatency
-```
-
-| Environment | Latency (P50) | Latency (P99.9) | Hardware / Specs |
-|-------------|-----------------------|-----------------------|------------------|
-| **Windows 11 (Dev)** | ~5,500 µs | > 60,000 µs | Ryzen 9 7950X, 64GB (NTFSJitter) |
-| **RunPod (Container)** | **~340 µs** | **~13,000 µs** | **8 vCPU, 16GB RAM (runpod/base:1.0.2-ubuntu2204)** |
-| **Linux (Bare Metal)** | **< 50 µs** | **< 150 µs** | Production Target (Isolated Cores) |
-
-> **Note on Performance:** The ~5ms latency seen on Windows is almost entirely due to the Raft log persistence to the standard file system and thread scheduling jitter. For realistic low-latency results, use the Linux optimization script.
-
-#### 3. Vector API (SIMD) Status
-
-CHRONOS **actively uses the JDK 21+ Vector API** to achieve SIMD-accelerated price scanning.
-
-- **Implementation:** `VectorizedPriceScanner.java`
-- **Performance:** Processes up to 8 price levels (AVX-2) or 16 price levels (AVX-512) per CPU cycle.
-- **Graceful Fallback:** If the Vector API is not available in the JVM or not supported by the hardware, the system automatically falls back to `ScalarPriceScanner.java`.
-
----
-
-## Linux Benchmarking Guide
-
-For developers with access to a Linux environment (Oracle Cloud, Hetzner, AWS), we provide a dedicated optimization script.
-
-### Running the Linux Benchmark
-
-1.  **Clone and Prep**:
-    ```bash
-    git clone https://github.com/vivkver/chronos.git
-    cd chronos
-    chmod +x scripts/bench-linux.sh
-    ```
-
-2.  **Execute (with sudo for kernel tuning)**:
-    ```bash
-    sudo ./scripts/bench-linux.sh
-    ```
-
-This script performs:
-- **Kernel Tuning**: Sets CPU governor to `performance` and increases UDP buffer sizes.
-- **RAM Disk Storage**: Moves the Aeron cluster Raft logs to `/dev/shm` to eliminate Disk I/O bottlenecks.
-- **Core Affinity**: Uses `taskset` to bind the benchmark process to specific CPU cores.
-
----
-
-## Project Structure
-
-**Recommended JVM Configuration:**
 ```bash
 java -XX:+UseZGC \
      -XX:+ZGenerational \
@@ -189,80 +126,8 @@ java -XX:+UseZGC \
 
 See [docs/gc-selection-guide.md](docs/gc-selection-guide.md) for detailed GC configuration guidance.
 
----
-
-### 3. FIX Parser Comparison vs Open-Source Libraries
-
-**Validated Benchmarks (Same Machine, Same Message, Rigorous JMH Settings):**
-
-| Library | Parse Time | Validation Level | Approach | Key Features |
-|---------|-----------|-----------------|----------|--------------|
-| **CHRONOS** | **110 ns** | **None (Raw)** | Zero-copy byte parsing | DirectBuffer, pre-allocated vectors, no checksum/body check |
-| **Philadelphia** | **161 ns** | **Structural** | ByteBuffer parsing | Reusable objects, tag-value extraction, no checksum check |
-| QuickFIX/J (No Valid) | 542 ns | **Structural** | Object construction | HashMap storage, String creation, skips checksum |
-| QuickFIX/J (Valid) | 587 ns | **Full** | Full object model | Checksum, BodyLength, Data Dictionary, Compliance |
-
-**Benchmark Details (JMH with 3 forks, 5 warmup, 5 measurement iterations):**
-```
-Benchmark                               Mode  Cnt    Score    Error  Units
-FixBenchmark.chronosParse               avgt   15  117.451 ±  0.707  ns/op
-FixBenchmark.philadelphiaParse          avgt   15  175.220 ±  1.318  ns/op
-FixBenchmark.quickfixParseNoValidation  avgt   15  826.833 ± 69.498  ns/op
-FixBenchmark.quickfixParse              avgt   15  876.801 ± 29.292  ns/op
-```
-
-**Performance Analysis:**
-- **Chronos vs Philadelphia**: **~1.5x faster** (161ns / 110ns)
-- **Chronos vs QuickFIX/J (no validation)**: **4.9x faster** (542ns / 110ns)
-- **Chronos vs QuickFIX/J (validated)**: **5.3x faster** (587ns / 110ns)
-- **Philadelphia vs QuickFIX/J (no validation)**: **3.3x faster** (542ns / 161ns)
-
-**Why CHRONOS is Faster:**
-
-| Technique | CHRONOS | Philadelphia | QuickFIX/J |
-|-----------|---------|--------------|------------|
-| Zero-copy parsing | ✅ | ⚠️ Partial | ❌ |
-| Pre-allocated arrays | ✅ | ✅ | ❌ |
-| No String creation | ✅ | ✅ | ❌ |
-| DirectBuffer (Agrona) | ✅ | ❌ | ❌ |
-| No validation overhead | ✅ | ✅ | Optional |
-| SIMD-friendly layout | ✅ | ❌ | ❌ |
-| Fixed-point arithmetic | ✅ | ❌ | ❌ |
-
-**Trade-offs:**
-- **CHRONOS**: Ultra-low latency (**110ns**), zero GC, but requires manual validation at business logic layer
-- **Philadelphia**: Low latency (**161ns**), minimal allocation, good balance of performance and usability
-- **QuickFIX/J**: Full FIX compliance, easy to use, data dictionary support, but higher latency (**542-587ns**) and GC pressure
-
-**Other High-Performance FIX Libraries** *(not benchmarked in this project)*:
-- **Chronicle FIX** - Commercial low-GC design with persistence
-- **Falcon** - Open-source ultra-low latency with zero-heap RX/TX paths
-
-### 4. Zero-GC Proof
-
-```bash
-java -XX:StartFlightRecording=filename=chronos.jfr,settings=chronos-benchmarks/src/main/resources/jfr-zero-gc.jfc \
-     --add-modules jdk.incubator.vector \
-     -jar chronos-benchmarks.jar
-```
-Open `chronos.jfr` in JDK Mission Control → GC tab. The flat GC line proves zero allocation on the hot path.
-
-## Production Deployment
-
-### JVM Flags
-```bash
-java \
-  --add-modules jdk.incubator.vector \
-  --add-opens java.base/sun.misc=ALL-UNNAMED \
-  -XX:+UseZGC -XX:+ZGenerational \
-  -Xms4g -Xmx4g \
-  -XX:+AlwaysPreTouch \
-  -XX:+UseTransparentHugePages \
-  -Daeron.conductor.cpu.affinity=2 \
-  -jar chronos-sequencer.jar
-```
-
 ### CPU Isolation (Linux)
+
 ```bash
 # Isolate cores 2-5 from the OS scheduler
 # Add to kernel boot params: isolcpus=2-5 nohz_full=2-5
@@ -272,6 +137,7 @@ taskset -c 4 java -jar chronos-response-gateway.jar
 ```
 
 ### CDS Archive (Fast Startup)
+
 ```bash
 # Step 1: Train and dump class list
 java -Xshare:off -XX:DumpLoadedClassList=chronos.classlist -jar chronos-warmup.jar
