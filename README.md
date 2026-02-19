@@ -195,12 +195,12 @@ See [docs/gc-selection-guide.md](docs/gc-selection-guide.md) for detailed GC con
 
 **Validated Benchmarks (Same Machine, Same Message, Rigorous JMH Settings):**
 
-| Library | Parse Time | Approach | Allocation | Key Features |
-|---------|-----------|----------|------------|--------------|
-| **CHRONOS** | **117 ns** | Zero-copy byte parsing | **Zero** | DirectBuffer, pre-allocated arrays, no validation |
-| **Philadelphia** | **175 ns** | ByteBuffer parsing | **Low** | Reusable FIXMessage object, non-blocking I/O optimized |
-| QuickFIX/J (no validation) | 827 ns | Object construction | High | HashMap storage, String creation, skip validation |
-| QuickFIX/J (validated) | 877 ns | Full object model | High | Complete validation, data dictionary, FIX compliance |
+| Library | Parse Time | Validation Level | Approach | Key Features |
+|---------|-----------|-----------------|----------|--------------|
+| **CHRONOS** | **110 ns** | **None (Raw)** | Zero-copy byte parsing | DirectBuffer, pre-allocated vectors, no checksum/body check |
+| **Philadelphia** | **161 ns** | **Structural** | ByteBuffer parsing | Reusable objects, tag-value extraction, no checksum check |
+| QuickFIX/J (No Valid) | 542 ns | **Structural** | Object construction | HashMap storage, String creation, skips checksum |
+| QuickFIX/J (Valid) | 587 ns | **Full** | Full object model | Checksum, BodyLength, Data Dictionary, Compliance |
 
 **Benchmark Details (JMH with 3 forks, 5 warmup, 5 measurement iterations):**
 ```
@@ -212,10 +212,10 @@ FixBenchmark.quickfixParse              avgt   15  876.801 ± 29.292  ns/op
 ```
 
 **Performance Analysis:**
-- **Chronos vs Philadelphia**: **1.5x faster** (175ns / 117ns)
-- **Chronos vs QuickFIX/J (no validation)**: **7.0x faster** (827ns / 117ns)
-- **Chronos vs QuickFIX/J (validated)**: **7.5x faster** (877ns / 117ns)
-- **Philadelphia vs QuickFIX/J (no validation)**: **4.7x faster** (827ns / 175ns)
+- **Chronos vs Philadelphia**: **~1.5x faster** (161ns / 110ns)
+- **Chronos vs QuickFIX/J (no validation)**: **4.9x faster** (542ns / 110ns)
+- **Chronos vs QuickFIX/J (validated)**: **5.3x faster** (587ns / 110ns)
+- **Philadelphia vs QuickFIX/J (no validation)**: **3.3x faster** (542ns / 161ns)
 
 **Why CHRONOS is Faster:**
 
@@ -230,9 +230,9 @@ FixBenchmark.quickfixParse              avgt   15  876.801 ± 29.292  ns/op
 | Fixed-point arithmetic | ✅ | ❌ | ❌ |
 
 **Trade-offs:**
-- **CHRONOS**: Ultra-low latency (117ns), zero GC, but requires manual validation at business logic layer
-- **Philadelphia**: Low latency (175ns), minimal allocation, good balance of performance and usability
-- **QuickFIX/J**: Full FIX compliance, easy to use, data dictionary support, but higher latency (827-877ns) and GC pressure
+- **CHRONOS**: Ultra-low latency (**110ns**), zero GC, but requires manual validation at business logic layer
+- **Philadelphia**: Low latency (**161ns**), minimal allocation, good balance of performance and usability
+- **QuickFIX/J**: Full FIX compliance, easy to use, data dictionary support, but higher latency (**542-587ns**) and GC pressure
 
 **Other High-Performance FIX Libraries** *(not benchmarked in this project)*:
 - **Chronicle FIX** - Commercial low-GC design with persistence
