@@ -126,10 +126,11 @@ This benchmark measures the full Raft consensus path: **Client -> Consensus Modu
 ./gradlew :chronos-benchmarks:runClusterLatency
 ```
 
-| Environment | Median Latency (P50) | Tail Latency (P99.9) | Status |
-|-------------|-----------------------|-----------------------|--------|
-| **Windows Dev (Standard)** | ~4.5 - 5.5 ms | 60 - 70 ms | Bottleneck: Disk I/O + OS Jitter |
-| **Linux (Tuned/NVMe)** | **< 50 µs** | **< 150 µs** | **Production Target** |
+| Environment | Latency (P50) | Latency (P99.9) | Hardware / Specs |
+|-------------|-----------------------|-----------------------|------------------|
+| **Windows 11 (Dev)** | ~5,500 µs | > 60,000 µs | Ryzen 9 7950X, 64GB (NTFSJitter) |
+| **RunPod (Container)** | **~340 µs** | **~13,000 µs** | **8 vCPU, 16GB RAM (runpod/base:1.0.2-ubuntu2204)** |
+| **Linux (Bare Metal)** | **< 50 µs** | **< 150 µs** | Production Target (Isolated Cores) |
 
 > **Note on Performance:** The ~5ms latency seen on Windows is almost entirely due to the Raft log persistence to the standard file system and thread scheduling jitter. For realistic low-latency results, use the Linux optimization script.
 
