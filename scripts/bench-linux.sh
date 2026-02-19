@@ -20,11 +20,11 @@ if [[ $EUID -ne 0 ]]; then
    echo "For best results, run: sudo sysctl -w net.core.rmem_max=16777216 net.core.wmem_max=16777216"
 else
    echo "[1/3] Applying Kernel Optimizations..."
-   sysctl -w net.core.rmem_max=16777216
-   sysctl -w net.core.wmem_max=16777216
+   sysctl -w net.core.rmem_max=16777216 2>/dev/null || echo "Note: Could not set rmem_max (common in containers)"
+   sysctl -w net.core.wmem_max=16777216 2>/dev/null || echo "Note: Could not set wmem_max (common in containers)"
    
    if command -v cpupower &> /dev/null; then
-       cpupower frequency-set -g performance
+       cpupower frequency-set -g performance 2>/dev/null || echo "Note: Could not set CPU governor"
    fi
 fi
 
