@@ -2,7 +2,7 @@
 
 ## 🚨 Gradle Required
 
-To build and run this project, you need **Gradle 8.5+** installed.
+To build and run this project, you need **Gradle 9.x** installed.
 The automatic installation via Chocolatey failed due to lack of administrative privileges.
 
 ### 1. Install Gradle Manually
