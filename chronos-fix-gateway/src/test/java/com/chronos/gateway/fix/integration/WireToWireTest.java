@@ -1,6 +1,7 @@
 package com.chronos.gateway.fix.integration;
 
 import com.chronos.gateway.fix.FixGatewayMain;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -14,7 +15,14 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Integration test that requires a live Aeron Media Driver and full network
+ * stack.
+ * Run manually with a running Aeron Media Driver:
+ * {@code ./gradlew :chronos-fix-gateway:test -Ptags=wire-to-wire}
+ */
 @Tag("wire-to-wire")
+@Disabled("Requires a live Aeron Media Driver. Run manually with a full environment.")
 public class WireToWireTest {
 
     @Test

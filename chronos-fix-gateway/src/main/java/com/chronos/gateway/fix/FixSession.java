@@ -99,7 +99,9 @@ public class FixSession {
         // Record success for circuit breaker
         circuitBreaker.recordSuccess();
 
-        if (!validateSequence(msgSeqNum, msgType)) {
+        final boolean possDup = parser.getCharValue(FixParser.TAG_POSS_DUP_FLAG, (byte) 'N') == 'Y';
+
+        if (!validateSequence(msgSeqNum, msgType, possDup)) {
             return;
         }
 
@@ -111,7 +113,7 @@ public class FixSession {
         dispatchMessage(parser, msgType);
     }
 
-    private boolean validateSequence(int msgSeqNum, byte msgType) {
+    private boolean validateSequence(int msgSeqNum, byte msgType, boolean possDup) {
         if (state == State.CONNECTED && msgType != MSG_TYPE_LOGON) {
             LOG.warn("First message must be Logon (A). Received: {}", (char) msgType);
             disconnect();
@@ -122,9 +124,17 @@ public class FixSession {
             return true;
 
         if (msgSeqNum < nextExpectedMsgSeqNum) {
-            LOG.error("MsgSeqNum too low. Expected: {}, Received: {}", nextExpectedMsgSeqNum, msgSeqNum);
-            disconnect();
-            return false;
+            if (possDup) {
+                LOG.info("Ignoring Possible Duplicate message (MsgSeqNum={}, Expected={})", msgSeqNum,
+                        nextExpectedMsgSeqNum);
+                return false;
+            } else {
+                LOG.error("MsgSeqNum too low. Expected: {}, Received: {} without PossDupFlag=Y", nextExpectedMsgSeqNum,
+                        msgSeqNum);
+                sendLogout("MsgSeqNum too low, expecting " + nextExpectedMsgSeqNum + " but received " + msgSeqNum);
+                disconnect();
+                return false;
+            }
         }
 
         if (msgSeqNum > nextExpectedMsgSeqNum) {
@@ -218,8 +228,31 @@ public class FixSession {
 
     private void handleLogon(FixParser parser, int msgSeqNum) {
         LOG.info("Received Logon (MsgSeqNum={})", msgSeqNum);
+
+        boolean resetSeqNumFlag = parser.getCharValue(FixParser.TAG_RESET_SEQ_NUM_FLAG, (byte) 'N') == 'Y';
+
+        if (resetSeqNumFlag) {
+            LOG.info("ResetSeqNumFlag=Y received, resetting sequences to 1");
+            nextExpectedMsgSeqNum = 1;
+            nextSenderMsgSeqNum = 1;
+        }
+
+        if (msgSeqNum < nextExpectedMsgSeqNum) {
+            LOG.error("Logon MsgSeqNum too low. Expected: {}, Received: {}", nextExpectedMsgSeqNum, msgSeqNum);
+            sendLogout("MsgSeqNum too low, expecting " + nextExpectedMsgSeqNum + " but received " + msgSeqNum);
+            disconnect();
+            return;
+        }
+
         state = State.LOGGED_ON;
-        nextExpectedMsgSeqNum = msgSeqNum + 1;
+
+        if (msgSeqNum > nextExpectedMsgSeqNum) {
+            // Gap detected on logon
+            nextExpectedMsgSeqNum = msgSeqNum + 1;
+        } else {
+            nextExpectedMsgSeqNum++;
+        }
+
         sendLogonResponse();
     }
 

@@ -3,6 +3,7 @@ package com.chronos.bench;
 import com.chronos.core.lob.OffHeapOrderBook;
 import com.chronos.matching.MatchingEngine;
 import com.chronos.matching.PriceScannerFactory;
+import org.agrona.collections.Int2ObjectHashMap;
 import com.chronos.schema.sbe.MessageHeaderDecoder;
 import com.chronos.schema.sbe.NewOrderSingleDecoder;
 import com.chronos.warmup.WarmupOrderGenerator;
@@ -68,7 +69,9 @@ public class ZeroGcProofBenchmark {
     @Setup(Level.Trial)
     public void setup() {
         final OffHeapOrderBook orderBook = new OffHeapOrderBook(1);
-        engine = new MatchingEngine(orderBook, PriceScannerFactory.create());
+        final Int2ObjectHashMap<OffHeapOrderBook> books = new Int2ObjectHashMap<>();
+        books.put(1, orderBook);
+        engine = new MatchingEngine(books, PriceScannerFactory.create());
         generator = new WarmupOrderGenerator(42L);
         orderBuffer = new UnsafeBuffer(new byte[WarmupOrderGenerator.messageSize()]);
         outputBuffer = new UnsafeBuffer(new byte[4096]);

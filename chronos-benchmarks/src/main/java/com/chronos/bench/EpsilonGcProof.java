@@ -3,6 +3,7 @@ package com.chronos.bench;
 import com.chronos.core.lob.OffHeapOrderBook;
 import com.chronos.matching.MatchingEngine;
 import com.chronos.matching.PriceScannerFactory;
+import org.agrona.collections.Int2ObjectHashMap;
 import com.chronos.schema.sbe.MessageHeaderDecoder;
 import com.chronos.schema.sbe.NewOrderSingleDecoder;
 import com.chronos.warmup.WarmupOrderGenerator;
@@ -66,7 +67,9 @@ public final class EpsilonGcProof {
 
         // ─── Setup (allocations here are fine — pre-warmup) ───
         final OffHeapOrderBook orderBook = new OffHeapOrderBook(1);
-        final MatchingEngine engine = new MatchingEngine(orderBook, PriceScannerFactory.create());
+        final Int2ObjectHashMap<OffHeapOrderBook> books = new Int2ObjectHashMap<>();
+        books.put(1, orderBook);
+        final MatchingEngine engine = new MatchingEngine(books, PriceScannerFactory.create());
         final WarmupOrderGenerator generator = new WarmupOrderGenerator(42L);
         final UnsafeBuffer orderBuffer = new UnsafeBuffer(new byte[WarmupOrderGenerator.messageSize()]);
         final UnsafeBuffer outputBuffer = new UnsafeBuffer(new byte[4096]);

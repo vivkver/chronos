@@ -4,6 +4,7 @@ import com.chronos.core.lob.OffHeapOrderBook;
 import com.chronos.gateway.response.LatencyTracker;
 import com.chronos.matching.MatchingEngine;
 import com.chronos.matching.PriceScannerFactory;
+import org.agrona.collections.Int2ObjectHashMap;
 import com.chronos.schema.sbe.MessageHeaderDecoder;
 import com.chronos.schema.sbe.NewOrderSingleDecoder;
 import com.chronos.warmup.WarmupOrderGenerator;
@@ -57,7 +58,9 @@ public final class WireToWireBenchmark {
 
         // ─── Setup ───
         final OffHeapOrderBook orderBook = new OffHeapOrderBook(1);
-        final MatchingEngine engine = new MatchingEngine(orderBook, PriceScannerFactory.create());
+        final Int2ObjectHashMap<OffHeapOrderBook> books = new Int2ObjectHashMap<>();
+        books.put(1, orderBook);
+        final MatchingEngine engine = new MatchingEngine(books, PriceScannerFactory.create());
         final WarmupOrderGenerator generator = new WarmupOrderGenerator(42L);
         final LatencyTracker latencyTracker = new LatencyTracker("Wire-to-Wire");
 

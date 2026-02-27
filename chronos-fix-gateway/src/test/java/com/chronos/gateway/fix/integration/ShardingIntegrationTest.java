@@ -7,6 +7,7 @@ import io.aeron.logbuffer.FragmentHandler;
 import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -21,7 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+/**
+ * Full end-to-end integration test that requires a live Aeron Media Driver.
+ * Run manually in a full environment with Aeron running.
+ */
 @Timeout(60)
+@Disabled("Requires a live Aeron Media Driver. Run manually with a full environment.")
 public class ShardingIntegrationTest {
 
     private static Thread gatewayThread;
