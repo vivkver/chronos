@@ -15,7 +15,7 @@ graph TD
         Sequencer -->|Raft Log| Matcher[Matching Engine Service]
     end
     
-    Matcher -->|Execution Report (SBE)| Gateway
+    Matcher -->|Execution Report - SBE| Gateway
     Gateway -->|FIX ExecutionReport| Client
     
     subgraph "Shared Memory (Off-Heap)"
