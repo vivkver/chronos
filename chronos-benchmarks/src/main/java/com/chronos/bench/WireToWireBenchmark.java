@@ -48,7 +48,7 @@ public final class WireToWireBenchmark {
     private static final int TOTAL_ORDERS = 1_000_000;
 
     /** Target rate: 1 million orders per second → 1 order per microsecond. */
-    private static final long TARGET_INTERVAL_NS = 1_000; // 1 μs
+    private static final long TARGET_INTERVAL_NS = 2_000; // 2 μs (500,000 msg/sec)
 
     public static void main(final String[] args) {
         LOG.info("═══════════════════════════════════════════════════════");
@@ -104,8 +104,8 @@ public final class WireToWireBenchmark {
             engine.matchOrder(orderDecoder, startNs, outputBuffer, 0);
             final long endNs = System.nanoTime();
 
-            // Record latency
-            latencyTracker.recordLatency(endNs - startNs);
+            // Record latency (Measures True Response Time: prevents coordinated omission)
+            latencyTracker.recordLatencyWithExpectedInterval(endNs - startNs, TARGET_INTERVAL_NS);
 
             // Schedule next send
             nextSendTime = intendedSendTime + TARGET_INTERVAL_NS;

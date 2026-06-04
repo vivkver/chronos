@@ -66,6 +66,20 @@ public final class LatencyTracker {
     }
 
     /**
+     * Record a latency measurement while automatically correcting for coordinated omission.
+     * Zero-allocation, O(1).
+     *
+     * @param latencyNs          actual latency in nanoseconds
+     * @param expectedIntervalNs expected interval between events in nanoseconds
+     */
+    public void recordLatencyWithExpectedInterval(final long latencyNs, final long expectedIntervalNs) {
+        if (latencyNs >= 0 && latencyNs <= MAX_LATENCY_NS) {
+            histogram.recordValueWithExpectedInterval(latencyNs, expectedIntervalNs);
+            recordCount++;
+        }
+    }
+
+    /**
      * Print the full percentile distribution.
      * NOT allocation-free — call off the hot path only.
      */

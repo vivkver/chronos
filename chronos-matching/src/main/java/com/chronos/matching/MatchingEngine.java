@@ -201,7 +201,8 @@ public final class MatchingEngine {
 
         // Walk each matchable price level in order (best price first)
         for (int lvl = 0; lvl < matchableLevels && remainingQty > 0; lvl++) {
-            int slot = orderBook.headOrderSlot(oppositeSide, lvl); // BUG FIX: was always 0
+            // Revert "BUG FIX: was always 0": Levels shift left when removed, so the best level is ALWAYS at index 0.
+            int slot = orderBook.headOrderSlot(oppositeSide, 0);
 
             while (slot != OffHeapOrderBook.NULL_SLOT && remainingQty > 0) {
                 final int restingRemaining = orderBook.slotRemaining(slot);

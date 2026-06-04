@@ -36,13 +36,21 @@ Look for the `LATENCY REPORT` section:
   LATENCY REPORT: Wire-to-Wire
 ═══════════════════════════════════════════════════════
   Total samples      : 1,000,000
-  Min         (ns)   : 1,234
-  ...
-  P50         (ns)   : 1,500
-  P99         (ns)   : 2,100
-  P99.99      (ns)   : 5,400    <-- Critical metric
+  Min         (ns)   : 75             ( ~ 75 ns )
+  Max         (ns)   : 2,027,519      ( ~ 2.02 ms )
+  Mean        (ns)   : 4,175.0  
+  StdDev      (ns)   : 29,766.4
+═══════════════════════════════════════════════════════
+  P50         (ns)   : 3,301          ( ~ 3.3 µs )
+  P90         (ns)   : 7,339          ( ~ 7.3 µs )
+  P99         (ns)   : 14,015         ( ~ 14.0 µs )
+  P99.9       (ns)   : 56,543         ( ~ 56.5 µs )
+  P99.99      (ns)   : 1,707,007      <-- Unmasked queuing delay ( ~ 1.7 ms )
+  P99.999     (ns)   : 1,995,775  
 ═══════════════════════════════════════════════════════
 ```
+
+> **Note on these Results:** Because this benchmark correctly corrects for Coordinated Omission, the tail latencies (P99.99 onwards) represent the true *Response Time*. Even on an optimized Linux environment like RunPod, momentary thread scheduling or JVM stalls can cause a virtual queue to build up, which is accurately captured here by the unmasked queuing delay (~1.7ms)!
 
 ## 2. JHM Microbenchmarks (`FixBenchmark`)
 
@@ -107,7 +115,7 @@ This benchmark measures the full Raft consensus path: **Client -> Consensus Modu
 | Environment | Latency (P50) | Latency (P99.9) | Hardware / Specs |
 |-------------|-----------------------|-----------------------|------------------|
 | **Windows 11 (Dev)** | ~5,500 µs | > 60,000 µs | Ryzen 9 7950X, 64GB (NTFSJitter) |
-| **RunPod (Container)** | **~340 µs** | **~13,000 µs** | **8 vCPU, 16GB RAM (runpod/base:1.0.2-ubuntu2204)** |
+| **RunPod (Container)** | **~179 µs** | **~4,825 µs** | **9 vCPU, 50GB RAM (Intel Xeon Gold 6342 @ 2.80GHz)** |
 | **Linux (Bare Metal)** | **< 50 µs** | **< 150 µs** | Production Target (Isolated Cores) |
 
 > **Note on Performance:** The ~5ms latency seen on Windows is almost entirely due to the Raft log persistence to the standard file system and thread scheduling jitter. For realistic low-latency results, use the Linux optimization script.
